@@ -1,0 +1,17 @@
+#Primer código del Video
+import array
+calificaciones = array.array('i', [0] * 5)
+for i in range(5):
+    calificaciones[i] = int(input(f"Inserte la calificación número #{i+1}: "))
+
+#Segundo Código del Video
+frutas = []
+frutas.append("Mango")
+frutas.append("Manzana")
+frutas.append("Bananas")
+frutas.append("Uvas")
+print(frutas)
+frutas.pop(0)
+frutas.pop(1)
+frutas.append("Sandía")
+print(frutas)
