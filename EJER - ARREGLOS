@@ -1,0 +1,234 @@
+#=================================================================================
+#  Código en Python
+#=================================================================================
+import numpy as np
+import pandas as pd
+
+class Ventas:
+    def __init__(self):
+        self.departamentos = ["Ropa", "Deportes", "Juguetería"]
+        self.meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+
+        #Generar arreglo con valores aleatorios entre 100 y 5000
+        self.ventas = np.random.randint(100, 5000, size=(len(self.departamentos), len(self.meses)))
+
+    def insertar_venta(self, depto, mes, monto):
+        """ Inserta o actualiza una venta """
+        try:
+            d_index = self.departamentos.index(depto)
+            m_index = self.meses.index(mes)
+            self.ventas[d_index, m_index] = monto
+            print(f"Venta registrada/modificada: {depto} - {mes} = {monto}")
+        except ValueError:
+            print("Error: Departamento o mes no válido.")
+
+    def buscar_venta(self, depto, mes):
+        """ Busca una venta """
+        try:
+            d_index = self.departamentos.index(depto)
+            m_index = self.meses.index(mes)
+            venta = self.ventas[d_index, m_index]
+            print(f"Venta encontrada: {depto} - {mes} = {venta}")
+            return venta
+        except ValueError:
+            print("Error: Departamento o mes no válido.")
+            return None
+
+    def eliminar_venta(self, depto, mes):
+        """ Elimina una venta (pone en 0) """
+        try:
+            d_index = self.departamentos.index(depto)
+            m_index = self.meses.index(mes)
+            self.ventas[d_index, m_index] = 0
+            print(f"Venta eliminada: {depto} - {mes}")
+        except ValueError:
+            print("Error: Departamento o mes no válido.")
+
+    def mostrar_tabla(self):
+        """ Muestra la tabla completa """
+        df = pd.DataFrame(self.ventas, index=self.departamentos, columns=self.meses)
+        print("\nReporte de Ventas:")
+        print(df)
+        return df
+
+# PROGRAMA PRINCIPAL CON MENÚ
+if __name__ == "__main__":
+    sistema = Ventas()
+
+    while True:
+        print("\n===== MENÚ DE OPCIONES =====")
+        print("1. Mostrar tabla de ventas")
+        print("2. Insertar/Modificar venta")
+        print("3. Buscar venta")
+        print("4. Eliminar venta")
+        print("5. Salir")
+
+        opcion = input("Selecciona una opción: ")
+
+        if opcion == "1":
+            sistema.mostrar_tabla()
+
+        elif opcion == "2":
+            depto = input("Departamento (Ropa, Deportes, Juguetería): ")
+            mes = input("Mes (Enero-Diciembre): ")
+            try:
+                monto = int(input("Monto de la venta: "))
+                sistema.insertar_venta(depto, mes, monto)
+            except ValueError:
+                print("El monto debe ser un número.")
+
+        elif opcion == "3":
+            depto = input("Departamento (Ropa, Deportes, Juguetería): ")
+            mes = input("Mes (Enero-Diciembre): ")
+            sistema.buscar_venta(depto, mes)
+
+        elif opcion == "4":
+            depto = input("Departamento (Ropa, Deportes, Juguetería): ")
+            mes = input("Mes (Enero-Diciembre): ")
+            sistema.eliminar_venta(depto, mes)
+
+        elif opcion == "5":
+            print("Saliendo del programa...")
+            break
+
+        else:
+            print("Opción no válida, intenta de nuevo.")
+#=================================================================================
+#  Código en Java
+#=================================================================================
+import java.util.*;
+
+public class Ventas {
+    private final List<String> departamentos = Arrays.asList("Ropa", "Deportes", "Juguetería");
+    private final List<String> meses = Arrays.asList(
+            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre");
+
+    private final int[][] ventas;
+
+    public Ventas() {
+        ventas = new int[departamentos.size()][meses.size()];
+        Random rand = new Random();
+        for (int i = 0; i < departamentos.size(); i++) {
+            for (int j = 0; j < meses.size(); j++) {
+                // np.random.randint(100,5000) -> 100..4999
+                ventas[i][j] = rand.nextInt(5000 - 100) + 100;
+            }
+        }
+    }
+
+    public void insertarVenta(String depto, String mes, int monto) {
+        int dIndex = departamentos.indexOf(depto);
+        int mIndex = meses.indexOf(mes);
+        if (dIndex == -1 || mIndex == -1) {
+            System.out.println("Error: Departamento o mes no válido.");
+            return;
+        }
+        ventas[dIndex][mIndex] = monto;
+        System.out.println("Venta registrada/modificada: " + depto + " - " + mes + " = " + monto);
+    }
+
+    public Integer buscarVenta(String depto, String mes) {
+        int dIndex = departamentos.indexOf(depto);
+        int mIndex = meses.indexOf(mes);
+        if (dIndex == -1 || mIndex == -1) {
+            System.out.println("Error: Departamento o mes no válido.");
+            return null;
+        }
+        int venta = ventas[dIndex][mIndex];
+        System.out.println("Venta encontrada: " + depto + " - " + mes + " = " + venta);
+        return venta;
+    }
+
+    public void eliminarVenta(String depto, String mes) {
+        int dIndex = departamentos.indexOf(depto);
+        int mIndex = meses.indexOf(mes);
+        if (dIndex == -1 || mIndex == -1) {
+            System.out.println("Error: Departamento o mes no válido.");
+            return;
+        }
+        ventas[dIndex][mIndex] = 0;
+        System.out.println("Venta eliminada: " + depto + " - " + mes);
+    }
+
+    public void mostrarTabla() {
+        int colWidth = 12;
+        System.out.println("\nReporte de Ventas:");
+        System.out.printf("%-" + colWidth + "s", "");
+        for (String mes : meses) {
+            System.out.printf("%-" + colWidth + "s", mes);
+        }
+        System.out.println();
+
+        for (int i = 0; i < departamentos.size(); i++) {
+            System.out.printf("%-" + colWidth + "s", departamentos.get(i));
+            for (int j = 0; j < meses.size(); j++) {
+                System.out.printf("%-" + colWidth + "d", ventas[i][j]);
+            }
+            System.out.println();
+        }
+    }
+
+    public static void main(String[] args) {
+        Ventas sistema = new Ventas();
+        Scanner sc = new Scanner(System.in);
+
+        while (true) {
+            System.out.println("\n===== MENÚ DE OPCIONES =====");
+            System.out.println("1. Mostrar tabla de ventas");
+            System.out.println("2. Insertar/Modificar venta");
+            System.out.println("3. Buscar venta");
+            System.out.println("4. Eliminar venta");
+            System.out.println("5. Salir");
+
+            System.out.print("Selecciona una opción: ");
+            String opcion = sc.nextLine().trim();
+
+            switch (opcion) {
+                case "1":
+                    sistema.mostrarTabla();
+                    break;
+
+                case "2":
+                    System.out.print("Departamento (Ropa, Deportes, Juguetería): ");
+                    String depto = sc.nextLine().trim();
+                    System.out.print("Mes (Enero-Diciembre): ");
+                    String mes = sc.nextLine().trim();
+                    System.out.print("Monto de la venta: ");
+                    String montoStr = sc.nextLine().trim();
+                    try {
+                        int monto = Integer.parseInt(montoStr);
+                        sistema.insertarVenta(depto, mes, monto);
+                    } catch (NumberFormatException e) {
+                        System.out.println("El monto debe ser un número.");
+                    }
+                    break;
+
+                case "3":
+                    System.out.print("Departamento (Ropa, Deportes, Juguetería): ");
+                    depto = sc.nextLine().trim();
+                    System.out.print("Mes (Enero-Diciembre): ");
+                    mes = sc.nextLine().trim();
+                    sistema.buscarVenta(depto, mes);
+                    break;
+
+                case "4":
+                    System.out.print("Departamento (Ropa, Deportes, Juguetería): ");
+                    depto = sc.nextLine().trim();
+                    System.out.print("Mes (Enero-Diciembre): ");
+                    mes = sc.nextLine().trim();
+                    sistema.eliminarVenta(depto, mes);
+                    break;
+
+                case "5":
+                    System.out.println("Saliendo del programa...");
+                    sc.close();
+                    return;
+
+                default:
+                    System.out.println("Opción no válida, intenta de nuevo.");
+            }
+        }
+    }
+}
