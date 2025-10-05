@@ -1,0 +1,42 @@
+# Definición de la pila
+CAPACIDAD = 8
+pila = [None] * CAPACIDAD  # Pila inicial con espacio para 8 elementos
+tope = 0  # TOPE inicia en 0
+
+# Función para mostrar el estado de la pila
+def mostrar_pila(pila, tope):
+    print(f"TOPE={tope} | Pila:", pila[:tope])
+
+# Función para insertar un elemento
+def insertar(pila, elemento, tope):
+    if tope >= CAPACIDAD:
+        print(f"No se puede insertar {elemento}: Pila llena")
+    else:
+        pila[tope] = elemento
+        tope += 1
+        print(f"Insertar({elemento})")
+        mostrar_pila(pila, tope)
+    return tope
+
+# Función para eliminar un elemento
+def eliminar(pila, nombre, tope):
+    if tope <= 0:
+        print(f"No se puede eliminar {nombre}: Pila vacía")
+    else:
+        tope -= 1
+        eliminado = pila[tope]
+        pila[tope] = None
+        print(f"Eliminar({nombre}) -> Se eliminó: {eliminado}")
+        mostrar_pila(pila, tope)
+    return tope
+
+# Secuencia de operaciones
+tope = insertar(pila, 'X', tope)  # a
+tope = insertar(pila, 'Y', tope)  # b
+tope = eliminar(pila, 'Z', tope)  # c
+tope = eliminar(pila, 'T', tope)  # d
+tope = eliminar(pila, 'U', tope)  # e
+tope = insertar(pila, 'V', tope)  # f
+tope = insertar(pila, 'W', tope)  # g
+tope = eliminar(pila, 'P', tope)  # h
+tope = insertar(pila, 'R', tope)  # i
