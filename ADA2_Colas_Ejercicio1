@@ -1,0 +1,48 @@
+# Definición de la clase Cola
+class Cola:
+    def __init__(self):
+        self.items = []
+
+    def esta_vacia(self):
+        return len(self.items) == 0
+
+    def encolar(self, elemento):
+        self.items.append(elemento)
+
+    def desencolar(self):
+        if not self.esta_vacia():
+            return self.items.pop(0)
+        else:
+            return None
+
+    def ver(self):
+        return self.items
+
+
+# Función para sumar dos colas
+def sumar_colas(cola1, cola2):
+    resultado = Cola()
+
+    # Mientras haya elementos en ambas colas
+    while not cola1.esta_vacia() and not cola2.esta_vacia():
+        a = cola1.desencolar()
+        b = cola2.desencolar()
+        resultado.encolar(a + b)
+
+    return resultado
+
+
+# --- Ejemplo de uso ---
+colaA = Cola()
+colaB = Cola()
+
+# Llenamos las colas con los datos del ejemplo
+for n in [3, 4, 2, 8, 12]:
+    colaA.encolar(n)
+
+for n in [6, 2, 9, 11, 3]:
+    colaB.encolar(n)
+
+colaResultado = sumar_colas(colaA, colaB)
+
+print("Cola resultado:", colaResultado.ver())
