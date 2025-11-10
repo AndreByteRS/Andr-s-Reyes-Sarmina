@@ -1,0 +1,366 @@
+import matplotlib.pyplot as plt
+import networkx as nx
+from itertools import permutations
+import tkinter as tk
+from tkinter import ttk, messagebox
+import folium
+import webbrowser
+import tempfile
+import os
+import geopandas as gpd
+from shapely.geometry import Point
+import matplotlib.patches as mpatches
+
+class GrafoEstados:
+    def __init__(self):
+        # Coordenadas reales aproximadas de las capitales de cada estado
+        self.estados = {
+            'CDMX': (19.4326, -99.1332),
+            'Jalisco': (20.6766, -103.3475),  # Guadalajara
+            'Nuevo León': (25.6866, -100.3161),  # Monterrey
+            'Veracruz': (19.1738, -96.1342),  # Xalapa
+            'Puebla': (19.0414, -98.2063),  # Puebla de Zaragoza
+            'Michoacán': (19.7063, -101.1921),  # Morelia
+            'Yucatán': (20.9801, -89.6167)  # Mérida
+        }
+        
+        # Definir conexiones con costos (distancias aproximadas en km)
+        self.conexiones = {
+            'CDMX': {'Puebla': 130, 'Michoacán': 300, 'Jalisco': 500},
+            'Jalisco': {'CDMX': 500, 'Michoacán': 250, 'Nuevo León': 700},
+            'Nuevo León': {'Jalisco': 700},
+            'Veracruz': {'Puebla': 200, 'Yucatán': 800},
+            'Puebla': {'CDMX': 130, 'Veracruz': 200},
+            'Michoacán': {'CDMX': 300, 'Jalisco': 250},
+            'Yucatán': {'Veracruz': 800}
+        }
+        
+        self.grafo = nx.Graph()
+        self._construir_grafo()
+    
+    def _construir_grafo(self):
+        # Agregar nodos (estados)
+        for estado, pos in self.estados.items():
+            self.grafo.add_node(estado, pos=pos)
+        
+        # Agregar aristas (conexiones)
+        for estado, conexiones in self.conexiones.items():
+            for destino, costo in conexiones.items():
+                self.grafo.add_edge(estado, destino, weight=costo)
+    
+    def encontrar_circuito_hamiltoniano(self):
+        """Encuentra un circuito hamiltoniano (recorrer todos sin repetir)"""
+        estados = list(self.estados.keys())
+        
+        # Generar todas las permutaciones posibles
+        for perm in permutations(estados):
+            # Verificar si es un camino válido en el grafo
+            camino_valido = True
+            costo_total = 0
+            
+            for i in range(len(perm) - 1):
+                if not self.grafo.has_edge(perm[i], perm[i+1]):
+                    camino_valido = False
+                    break
+                costo_total += self.grafo[perm[i]][perm[i+1]]['weight']
+            
+            # Completar el circuito
+            if camino_valido and self.grafo.has_edge(perm[-1], perm[0]):
+                costo_total += self.grafo[perm[-1]][perm[0]]['weight']
+                return list(perm) + [perm[0]], costo_total
+        
+        return None, 0
+    
+    def encontrar_recorrido_con_repeticion(self):
+        """Encuentra un recorrido que visite todos los estados permitiendo repetición"""
+        estados = list(self.estados.keys())
+        
+        # Usar el algoritmo del camino más corto que visite todos los nodos
+        visitados = set()
+        camino = []
+        costo_total = 0
+        estado_actual = estados[0]
+        
+        while len(visitados) < len(estados):
+            visitados.add(estado_actual)
+            camino.append(estado_actual)
+            
+            # Encontrar el estado no visitado más cercano
+            if len(visitados) < len(estados):
+                min_costo = float('inf')
+                siguiente_estado = None
+                
+                for vecino in self.grafo.neighbors(estado_actual):
+                    if vecino not in visitados:
+                        costo = self.grafo[estado_actual][vecino]['weight']
+                        if costo < min_costo:
+                            min_costo = costo
+                            siguiente_estado = vecino
+                
+                if siguiente_estado:
+                    costo_total += min_costo
+                    estado_actual = siguiente_estado
+                else:
+                    # Si no hay vecinos no visitados, ir al más cercano en general
+                    min_costo = float('inf')
+                    for estado in estados:
+                        if estado != estado_actual and estado not in visitados:
+                            try:
+                                path = nx.shortest_path(self.grafo, estado_actual, estado, weight='weight')
+                                path_costo = nx.shortest_path_length(self.grafo, estado_actual, estado, weight='weight')
+                                if path_costo < min_costo:
+                                    min_costo = path_costo
+                                    siguiente_estado = estado
+                                    camino_intermedio = path[1:-1]
+                            except:
+                                continue
+                    
+                    if siguiente_estado:
+                        for intermedio in camino_intermedio:
+                            camino.append(intermedio)
+                            costo_total += self.grafo[camino[-2]][intermedio]['weight']
+                        
+                        costo_total += self.grafo[camino[-1]][siguiente_estado]['weight']
+                        estado_actual = siguiente_estado
+        
+        return camino, costo_total
+    
+    def dibujar_mapa_folium(self, camino_hamilton=None, camino_repeticion=None):
+        """Crea un mapa interactivo con Folium"""
+        # Crear mapa centrado en México
+        mapa = folium.Map(location=[23.6345, -102.5528], zoom_start=5)
+        
+        # Agregar marcadores para cada estado
+        for estado, coords in self.estados.items():
+            folium.Marker(
+                location=coords,
+                popup=f"<b>{estado}</b>",
+                tooltip=estado,
+                icon=folium.Icon(color='blue', icon='info-sign')
+            ).add_to(mapa)
+        
+        # Agregar conexiones
+        for estado, conexiones in self.conexiones.items():
+            for destino, costo in conexiones.items():
+                folium.PolyLine(
+                    [self.estados[estado], self.estados[destino]],
+                    color='gray',
+                    weight=2,
+                    opacity=0.6,
+                    popup=f"{estado} - {destino}: {costo} km",
+                    tooltip=f"{costo} km"
+                ).add_to(mapa)
+        
+        # Agregar recorrido Hamiltoniano si existe
+        if camino_hamilton:
+            puntos_hamilton = [self.estados[estado] for estado in camino_hamilton]
+            folium.PolyLine(
+                puntos_hamilton,
+                color='red',
+                weight=4,
+                opacity=0.8,
+                popup="Recorrido Hamiltoniano",
+                tooltip="Sin repetición"
+            ).add_to(mapa)
+        
+        # Agregar recorrido con repetición si existe
+        if camino_repeticion:
+            puntos_repeticion = [self.estados[estado] for estado in camino_repeticion]
+            folium.PolyLine(
+                puntos_repeticion,
+                color='green',
+                weight=4,
+                opacity=0.8,
+                popup="Recorrido con Repetición",
+                tooltip="Con repetición"
+            ).add_to(mapa)
+        
+        # Guardar mapa temporalmente y abrirlo
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.html')
+        mapa.save(temp_file.name)
+        webbrowser.open('file://' + os.path.realpath(temp_file.name))
+        
+        return temp_file.name
+    
+    def dibujar_mapa_matplotlib(self):
+        """Dibuja un mapa simplificado con matplotlib"""
+        fig, ax = plt.subplots(figsize=(15, 10))
+        
+        # Dibujar puntos para cada estado
+        for estado, (lat, lon) in self.estados.items():
+            ax.plot(lon, lat, 'bo', markersize=10)
+            ax.text(lon + 0.2, lat + 0.1, estado, fontsize=12, fontweight='bold')
+        
+        # Dibujar conexiones
+        for estado, conexiones in self.conexiones.items():
+            for destino, costo in conexiones.items():
+                x1, y1 = self.estados[estado][1], self.estados[estado][0]
+                x2, y2 = self.estados[destino][1], self.estados[destino][0]
+                ax.plot([x1, x2], [y1, y2], 'gray', linewidth=2, alpha=0.6)
+                # Mostrar costo en el medio de la línea
+                ax.text((x1 + x2) / 2, (y1 + y2) / 2, f'{costo} km', 
+                       fontsize=8, backgroundcolor='white')
+        
+        ax.set_xlabel('Longitud')
+        ax.set_ylabel('Latitud')
+        ax.set_title('Mapa de Estados Mexicanos - Ubicaciones Reales')
+        ax.grid(True, alpha=0.3)
+        
+        # Ajustar límites del mapa
+        ax.set_xlim(-106, -86)
+        ax.set_ylim(14, 32)
+        
+        plt.tight_layout()
+        plt.show()
+
+class InterfazGrafica:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Recorrido de Estados Mexicanos - Mapa Real")
+        self.root.geometry("900x700")
+        
+        self.grafo = GrafoEstados()
+        self.camino_hamilton = None
+        self.camino_repeticion = None
+        
+        self.crear_interfaz()
+    
+    def crear_interfaz(self):
+        # Frame principal
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Título
+        titulo = ttk.Label(main_frame, text="🗺️ Recorrido de Estados Mexicanos - Mapa Real", 
+                          font=("Arial", 16, "bold"))
+        titulo.grid(row=0, column=0, columnspan=3, pady=10)
+        
+        # Información de estados
+        info_frame = ttk.LabelFrame(main_frame, text="Estados y Conexiones", padding="10")
+        info_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
+        
+        info_text = tk.Text(info_frame, height=8, width=80)
+        info_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        
+        # Mostrar información de conexiones
+        info_text.insert(tk.END, "📍 Estados incluidos (coordenadas reales):\n")
+        for estado, coords in self.grafo.estados.items():
+            info_text.insert(tk.END, f"- {estado}: Lat {coords[0]:.4f}, Lon {coords[1]:.4f}\n")
+        
+        info_text.insert(tk.END, "\n🛣️ Conexiones y costos (km):\n")
+        for estado, conexiones in self.grafo.conexiones.items():
+            for destino, costo in conexiones.items():
+                info_text.insert(tk.END, f"• {estado} ↔ {destino}: {costo} km\n")
+        
+        info_text.config(state=tk.DISABLED)
+        
+        # Botones
+        botones_frame = ttk.Frame(main_frame)
+        botones_frame.grid(row=2, column=0, columnspan=3, pady=20)
+        
+        btn_hamilton = ttk.Button(botones_frame, text="🔍 Recorrido Sin Repetir", 
+                                 command=self.mostrar_hamiltoniano)
+        btn_hamilton.grid(row=0, column=0, padx=5)
+        
+        btn_repetir = ttk.Button(botones_frame, text="🔄 Recorrido Con Repetición", 
+                                command=self.mostrar_con_repeticion)
+        btn_repetir.grid(row=0, column=1, padx=5)
+        
+        btn_mapa_folium = ttk.Button(botones_frame, text="🗺️ Mapa Interactivo", 
+                                   command=self.mostrar_mapa_interactivo)
+        btn_mapa_folium.grid(row=0, column=2, padx=5)
+        
+        btn_mapa_static = ttk.Button(botones_frame, text="📊 Mapa Estático", 
+                                   command=self.mostrar_mapa_estatico)
+        btn_mapa_static.grid(row=0, column=3, padx=5)
+        
+        # Área de resultados
+        resultados_frame = ttk.LabelFrame(main_frame, text="Resultados", padding="10")
+        resultados_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
+        
+        self.resultados_text = tk.Text(resultados_frame, height=12, width=80)
+        scrollbar = ttk.Scrollbar(resultados_frame, orient="vertical", command=self.resultados_text.yview)
+        self.resultados_text.configure(yscrollcommand=scrollbar.set)
+        
+        self.resultados_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        # Configurar grid weights
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.rowconfigure(3, weight=1)
+        resultados_frame.columnconfigure(0, weight=1)
+        resultados_frame.rowconfigure(0, weight=1)
+    
+    def mostrar_hamiltoniano(self):
+        self.camino_hamilton, costo = self.grafo.encontrar_circuito_hamiltoniano()
+        
+        self.resultados_text.config(state=tk.NORMAL)
+        self.resultados_text.delete(1.0, tk.END)
+        
+        if self.camino_hamilton:
+            self.resultados_text.insert(tk.END, "✅ === RECORRIDO SIN REPETIR ESTADOS ===\n\n")
+            self.resultados_text.insert(tk.END, "🛣️ Circuito Hamiltoniano encontrado:\n")
+            self.resultados_text.insert(tk.END, " → ".join(self.camino_hamilton) + "\n\n")
+            self.resultados_text.insert(tk.END, f"💰 Costo total del recorrido: {costo} km\n\n")
+            self.resultados_text.insert(tk.END, "💡 Presiona 'Mapa Interactivo' para ver la ruta en el mapa!\n")
+        else:
+            self.resultados_text.insert(tk.END, "❌ No se encontró un circuito hamiltoniano\n")
+        
+        self.resultados_text.config(state=tk.DISABLED)
+    
+    def mostrar_con_repeticion(self):
+        self.camino_repeticion, costo = self.grafo.encontrar_recorrido_con_repeticion()
+        
+        self.resultados_text.config(state=tk.NORMAL)
+        self.resultados_text.delete(1.0, tk.END)
+        
+        self.resultados_text.insert(tk.END, "🔄 === RECORRIDO CON REPETICIÓN ===\n\n")
+        self.resultados_text.insert(tk.END, "🛣️ Recorrido encontrado:\n")
+        self.resultados_text.insert(tk.END, " → ".join(self.camino_repeticion) + "\n\n")
+        self.resultados_text.insert(tk.END, f"💰 Costo total del recorrido: {costo} km\n")
+        
+        # Contar repeticiones
+        conteo = {}
+        for estado in self.camino_repeticion:
+            conteo[estado] = conteo.get(estado, 0) + 1
+        
+        self.resultados_text.insert(tk.END, "\n📊 Conteo de visitas por estado:\n")
+        for estado, count in conteo.items():
+            if count > 1:
+                self.resultados_text.insert(tk.END, f"• {estado}: {count} veces\n")
+        
+        self.resultados_text.insert(tk.END, "\n💡 Presiona 'Mapa Interactivo' para ver la ruta en el mapa!\n")
+        self.resultados_text.config(state=tk.DISABLED)
+    
+    def mostrar_mapa_interactivo(self):
+        """Muestra el mapa interactivo con Folium"""
+        try:
+            self.grafo.dibujar_mapa_folium(self.camino_hamilton, self.camino_repeticion)
+            messagebox.showinfo("Mapa Interactivo", 
+                              "El mapa interactivo se ha abierto en tu navegador web.\n\n" +
+                              "Leyenda:\n" +
+                              "• Línea ROJA: Recorrido sin repetición\n" +
+                              "• Línea VERDE: Recorrido con repetición\n" +
+                              "• Líneas GRISES: Conexiones disponibles")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo abrir el mapa interactivo: {str(e)}")
+    
+    def mostrar_mapa_estatico(self):
+        """Muestra el mapa estático con matplotlib"""
+        try:
+            self.grafo.dibujar_mapa_matplotlib()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo generar el mapa estático: {str(e)}")
+
+def main():
+    # Instalar dependencias necesarias (ejecutar en terminal):
+    # pip install folium geopandas matplotlib networkx tkinter
+    
+    root = tk.Tk()
+    app = InterfazGrafica(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
