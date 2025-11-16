@@ -1,0 +1,34 @@
+import heapq
+
+def dijkstra(grafo, origen):
+    dist = {nodo: float('inf') for nodo in grafo}
+    dist[origen] = 0
+    cola = [(0, origen)]
+
+    while cola:
+        distancia_actual, nodo_actual = heapq.heappop(cola)
+
+        if distancia_actual > dist[nodo_actual]:
+            continue
+
+        for vecino, peso in grafo[nodo_actual]:
+            nueva_dist = distancia_actual + peso
+
+            if nueva_dist < dist[vecino]:
+                dist[vecino] = nueva_dist
+                heapq.heappush(cola, (nueva_dist, vecino))
+
+    return dist
+
+
+# Ejemplo de uso
+grafo = {
+    'A': [('B', 4), ('C', 2)],
+    'B': [('C', 5), ('D', 10)],
+    'C': [('E', 3)],
+    'D': [],
+    'E': [('D', 4)]
+}
+
+resultado = dijkstra(grafo, 'A')
+print("Distancias desde A:", resultado)
